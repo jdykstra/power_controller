@@ -1,34 +1,29 @@
-#include <IRLib.h>
-#include <IRLibMatch.h>
-#include <IRLibRData.h>
-#include <IRLibTimer.h>
+//  ?? Make this more specific once we know which protocols we need.
+#include <IRLibAll.h>
 
 /*    power_controller.ino - Audio Power Controller Arduino sketch
  *     
  */
  
-int RECV_PIN = 11;
+int RECV_PIN = 3;
 
-IRrecv My_Receiver(RECV_PIN);
+IRrecv myReceiver(RECV_PIN);
 
-IRdecode My_Decoder;
-unsigned int Buffer[RAWBUF];
+IRdecode myDecoder;
 
 void setup()
 {
   Serial.begin(9600);
   delay(2000);while(!Serial);//delay for Leonardo
-  My_Receiver.enableIRIn(); // Start the receiver
-  My_Decoder.UseExtnBuf(Buffer);
+  myReceiver.enableIRIn(); // Start the receiver
+  Serial.println(F("Initialization complete."));
 }
 
 void loop() {
-  if (My_Receiver.GetResults(&My_Decoder)) {
-    //Restart the receiver so it can be capturing another code
-    //while we are working on decoding this one.
-    My_Receiver.resume(); 
-    My_Decoder.decode();
-    My_Decoder.DumpResults();
+  if (myReceiver.getResults()) {
+    myDecoder.decode();
+    myDecoder.dumpResults(false);
+    myReceiver.enableIRIn();    //  Restart receiver
   }
 }
 
