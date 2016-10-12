@@ -22,6 +22,20 @@
 IRrecv myReceiver(PIN_IR_IN);
 IRdecode myDecoder;
 
+/* Switch inputs. */
+typedef enum {
+  SW_LR_PWR = 0,                /* Living room power */
+  SW_OVERRIDE,                  /* Override */
+  N_SW                          /* Number of switches */
+} sws;
+
+/* Track switch states. */
+typedef struct {
+  int       pin;                /* Associated pin number */
+  int       current;            /* Current state (HIGH or LOW) */
+  int       debounce;           /* ms. remaining in debounce period */
+} t_sw;
+
 /* Control outputs */
 typedef enum {
   CTL_SRC = 0,                  /* Source power */
@@ -40,7 +54,7 @@ typedef enum {
 
 /* Track control output states. */
 typedef struct {
-  int         pin;              /* Associated pin number. */
+  int         pin;              /* Associated pin number */
   ctl_state   current;          /* Current state (up or down) */
   int         delay[N_STATE];   /* ms. to delay after entering new state */
   char        *name;            /* Name (for debugging) */
@@ -101,13 +115,13 @@ void stateSysDown(int newSysState)
 {
   switch (newSysState){
     case SYS_LIVING_ROOM_UP:
-      setCtl(CTL_SPKR_SW, UP);
+      setCtl(CTL_SPKR_SW, DOWN);
       setCtl(CTL_SRC, UP);
       setCtl(CTL_LOW_AMP, UP);
       setCtl(CTL_HIGH_AMP, UP);
       break;
     case SYS_OFFICE_UP:
-      setCtl(CTL_SPKR_SW, DOWN);
+      setCtl(CTL_SPKR_SW, UP);
       setCtl(CTL_SRC, UP);
       setCtl(CTL_HIGH_AMP, UP);
       break;
@@ -124,12 +138,12 @@ void stateLivingRoomUp(int newSysState)
       setCtl(CTL_HIGH_AMP, DOWN);
       setCtl(CTL_LOW_AMP, DOWN);
       setCtl(CTL_SRC, DOWN);
-      setCtl(CTL_SPKR_SW, UP);
+      setCtl(CTL_SPKR_SW, DOWN);
       break;
     case SYS_OFFICE_UP:
       setCtl(CTL_LOW_AMP, DOWN);
-      setCtl(CTL_SPKR_SW, DOWN);
-      break;
+      setCtl(CTL_SPKR_SW, UP);
+     break;
     default:
       Serial.println(F("Null state transition."));
   }
@@ -141,13 +155,13 @@ void stateOfficeUp(int newSysState)
   switch (newSysState){
     case SYS_LIVING_ROOM_UP:
       setCtl(CTL_LOW_AMP, UP);
-      setCtl(CTL_SPKR_SW, UP);
+      setCtl(CTL_SPKR_SW, DOWN);
       break;
     case SYS_DOWN:
       setCtl(CTL_HIGH_AMP, DOWN);
       setCtl(CTL_LOW_AMP, DOWN);
       setCtl(CTL_SRC, DOWN);
-      setCtl(CTL_SPKR_SW, UP);
+      setCtl(CTL_SPKR_SW, DOWN);
       break;
     default:
       Serial.println(F("Null state transition."));
@@ -247,6 +261,7 @@ void loop() {
     Serial.print(F(" value "));
     Serial.println(myDecoder.value, HEX);
     if (myDecoder.protocolNum == NEC){
+      digitalWrite(LED_BUILTIN, HIGH);
       switch (myDecoder.value){
         case 0x58A701FE:
           cmdLivingRoomPower();
@@ -255,6 +270,7 @@ void loop() {
            cmdOfficePower();
            break;
       }
+      digitalWrite(LED_BUILTIN, LOW);
     }
     myReceiver.enableIRIn();    //  Restart receiver
   }
