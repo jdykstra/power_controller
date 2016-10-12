@@ -61,7 +61,7 @@ void setCtl(ctls ctl, ctl_state newState)
   Serial.print(ctlStruct->name);
 
   if (newState == ctlStruct->current){
-    Serial.print(F(" still at %d."));
+    Serial.print(F(" still at "));
     Serial.println(newState, DEC);
     return;
   }
