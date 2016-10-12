@@ -194,6 +194,23 @@ void cmdLivingRoomPower()
   }
 }
 
+void cmdOfficePower()
+{
+  switch (currentSysState){
+    case SYS_DOWN:
+      setSysState(SYS_OFFICE_UP);
+      break;
+
+    case SYS_LIVING_ROOM_UP:
+      setSysState(SYS_OFFICE_UP);
+      break;
+
+    case SYS_OFFICE_UP:
+      setSysState(SYS_DOWN);
+      break;
+  }
+}
+
 
 void setup()
 {
@@ -233,6 +250,10 @@ void loop() {
       switch (myDecoder.value){
         case 0x58A701FE:
           cmdLivingRoomPower();
+          break;
+         case 0x58A711EE:
+           cmdOfficePower();
+           break;
       }
     }
     myReceiver.enableIRIn();    //  Restart receiver
