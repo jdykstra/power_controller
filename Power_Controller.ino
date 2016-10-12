@@ -17,6 +17,11 @@
 #define PIN_LOW_PWR     11      /* Low amp power output */
 #define PIN_SPKR_SW     12      /* Speaker switch output */
 
+/* Objects for IRLib2. */
+/*  ??  Need to add IR output */
+IRrecv myReceiver(PIN_IR_IN);
+IRdecode myDecoder;
+
 /* Control outputs */
 typedef enum {
   CTL_SRC = 0,                  /* Source power */
@@ -47,12 +52,6 @@ t_ctlOutput ctlOutputs[N_CTL] = {
     {PIN_LOW_PWR, DOWN, {1*1000, 2*1000}, "Low amp"},
     {PIN_SPKR_SW, DOWN, {100, 100}, "Speaker switch"},
 };
-
-
-/* Objects for IRLib2. */
-/*  ??  Need to add IR output */
-IRrecv myReceiver(PIN_IR_IN);
-IRdecode myDecoder;
 
 
 /* Set a control output to the specified value. */
@@ -86,7 +85,7 @@ void setCtl(ctls ctl, ctl_state newState)
 enum {
   CMD_LIVING_ROOM_POWER,
   CMD_OFFICE_POWER,
-}
+};
 
 
 /* System states. */
@@ -94,62 +93,103 @@ enum {
   SYS_DOWN,
   SYS_LIVING_ROOM_UP,
   SYS_OFFICE_UP
-}
+};
 
 int currentSysState = SYS_DOWN;
 
-void bringSysDown()
-{
-  setCtl(CTL_HIGH_AMP, DOWN);
-  setCtl(CTL_LOW_AMP, DOWN);
-  setCtl(CTL_SRC, DOWN);
-  setCtl(CTL_SPKR_SW, UP);
-}
-
-
-void bringLivingRoomUp()
-{
-  setCtl(CTL_SRC, UP);
-  setCtl(CTL_SPKR_SW, UP);
-  setCtl(CTL_LOW_AMP, UP);
-  setCtl(CTL_HIGH_AMP, UP);
-}
-
-
-void bringOfficeUp()
-{
-  setCtl(CTL_LOW_AMP, DOWN);
-  setCtl(CTL_SRC, UP);
-  setCtl(CTL_SPKR_SW, DOWN);
-  setCtl(CTL_HIGH_AMP, UP);
-}
-
-/* Move to the specified system state. */
-void setSysState(int newSysState)
+void stateSysDown(int newSysState)
 {
   switch (newSysState){
-    case SYS_DOWN:
-      bringSysDown();
-      break;
-
     case SYS_LIVING_ROOM_UP:
-      bringLivingRoomUp();
+      setCtl(CTL_SPKR_SW, UP);
+      setCtl(CTL_SRC, UP);
+      setCtl(CTL_LOW_AMP, UP);
+      setCtl(CTL_HIGH_AMP, UP);
       break;
-
     case SYS_OFFICE_UP:
-      bringOfficeUp()
+      setCtl(CTL_SPKR_SW, DOWN);
+      setCtl(CTL_SRC, UP);
+      setCtl(CTL_HIGH_AMP, UP);
       break;
+    default:
+      Serial.println(F("Null state transition."));
   }
 }
 
 
-void doCommand(int cmd)
+void stateLivingRoomUp(int newSysState)
 {
-  switch(cmd){
-    case CMD_LIVING_ROOM_POWER:
+  switch (newSysState){
+    case SYS_DOWN:
+      setCtl(CTL_HIGH_AMP, DOWN);
+      setCtl(CTL_LOW_AMP, DOWN);
+      setCtl(CTL_SRC, DOWN);
+      setCtl(CTL_SPKR_SW, UP);
+      break;
+    case SYS_OFFICE_UP:
+      setCtl(CTL_LOW_AMP, DOWN);
+      setCtl(CTL_SPKR_SW, DOWN);
+      break;
+    default:
+      Serial.println(F("Null state transition."));
+  }
+}
+
+
+void stateOfficeUp(int newSysState)
+{
+  switch (newSysState){
+    case SYS_LIVING_ROOM_UP:
+      setCtl(CTL_LOW_AMP, UP);
+      setCtl(CTL_SPKR_SW, UP);
+      break;
+    case SYS_DOWN:
+      setCtl(CTL_HIGH_AMP, DOWN);
+      setCtl(CTL_LOW_AMP, DOWN);
+      setCtl(CTL_SRC, DOWN);
+      setCtl(CTL_SPKR_SW, UP);
+      break;
+    default:
+      Serial.println(F("Null state transition."));
+  }
+}
+
+
+
+/* Move to the specified system state. */
+void setSysState(int newSysState)
+{
+  switch (currentSysState){
+    case SYS_DOWN:
+      stateSysDown(newSysState);
       break;
 
-    case CMD_OFFICE_POWER:
+    case SYS_LIVING_ROOM_UP:
+      stateLivingRoomUp(newSysState);
+      break;
+
+    case SYS_OFFICE_UP:
+      stateOfficeUp(newSysState);
+      break;
+  }
+
+  currentSysState = newSysState;
+}
+
+
+void cmdLivingRoomPower()
+{
+  switch (currentSysState){
+    case SYS_DOWN:
+      setSysState(SYS_LIVING_ROOM_UP);
+      break;
+
+    case SYS_LIVING_ROOM_UP:
+      setSysState(SYS_DOWN);
+      break;
+
+    case SYS_OFFICE_UP:
+      setSysState(SYS_LIVING_ROOM_UP);
       break;
   }
 }
@@ -174,6 +214,7 @@ void setup()
   pinMode(PIN_SPKR_SW, OUTPUT);
  
   /* Initialize IRLib2. */
+  IRLib_NoOutput();
   myReceiver.enableIRIn();
   
   Serial.println(F("Initialization complete."));
@@ -184,7 +225,16 @@ void loop() {
   /* Process IR commands. */
   if (myReceiver.getResults()) {
     myDecoder.decode();
-    myDecoder.dumpResults(false);
+    Serial.print(F("IR protocol "));
+    Serial.print(myDecoder.protocolNum, DEC);
+    Serial.print(F(" value "));
+    Serial.println(myDecoder.value, HEX);
+    if (myDecoder.protocolNum == NEC){
+      switch (myDecoder.value){
+        case 0x58A701FE:
+          cmdLivingRoomPower();
+      }
+    }
     myReceiver.enableIRIn();    //  Restart receiver
   }
 
