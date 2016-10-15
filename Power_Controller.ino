@@ -245,6 +245,14 @@ void setup()
   pinMode(PIN_SPKR_SW, OUTPUT);
  
   /* Initialize IRLib2. */
+  /*  
+   *   The IR repeater lengthens marks, at least partially due to
+   *   the slow fall time of the line from the receivers to the 
+   *   central unit due to line capacitance.  This compensory 
+   *   value was determined empirically.
+   */
+  myReceiver.markExcess = 4*myReceiver.markExcess;
+  
   IRLib_NoOutput();
   myReceiver.enableIRIn();
   
