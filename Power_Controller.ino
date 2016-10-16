@@ -4,7 +4,9 @@
 
 #include <IRLibRecv.h>
 #include <IRLibDecodeBase.h>
+#include <IRLibSendBase.H>
 #include <IRLib_P01_NEC.h>
+
 
 /*  Hardware definitions.  */
 #define PIN_IR_IN       2       /* IR receive input */
@@ -16,10 +18,13 @@
 #define PIN_LOW_PWR     11      /* Low amp power output */
 #define PIN_SPKR_SW     12      /* Speaker switch output */
 
-/* Objects for IRLib2. */
-/*  ??  Need to add IR output */
+/* Objects for infrared communication. */
 IRrecv myReceiver(PIN_IR_IN);
 IRdecodeNEC myDecoder;
+IRsendNEC mySender;
+
+/*  Number of times to repeat a sent IR code. */
+#define IR_REPEAT_COUNT 5
 
 /* Switch inputs. */
 typedef enum {
@@ -94,6 +99,28 @@ void setCtl(ctls ctl, ctl_state newState)
 }
 
 
+/* 
+ *  Send an IR command.
+ */
+void sendIRCommand(uint32_t value)
+{
+  int i;
+
+  /* 
+   *  Send an IR command a number of times to maximize the chances
+   *  it will be received.
+   */
+  for (i=0; i < IR_REPEAT_COUNT; i++)
+    mySender.send(value);
+
+  /* 
+   *  According to the IRLib2 documentation, it's necessary to 
+   *  restart the receiver after sending something, because 
+   *  the timers (or interrupts?) may have been reconfigured.
+   */
+   myReceiver.enableIRIn();    //  Restart receiver
+}
+
 /* Commands. */
 enum {
   CMD_LIVING_ROOM_POWER,
@@ -118,12 +145,18 @@ void stateSysDown(int newSysState)
       setCtl(CTL_SRC, UP);
       setCtl(CTL_LOW_AMP, UP);
       setCtl(CTL_HIGH_AMP, UP);
+
+      /* Turn off the refrigerator. */
+      /* ??  Dummy code for now. */
+      sendIRCommand(0x58A741BE);  
       break;
+      
     case SYS_OFFICE_UP:
       setCtl(CTL_SPKR_SW, UP);
       setCtl(CTL_SRC, UP);
       setCtl(CTL_HIGH_AMP, UP);
       break;
+      
     default:
       Serial.println(F("Null state transition."));
   }
@@ -138,11 +171,21 @@ void stateLivingRoomUp(int newSysState)
       setCtl(CTL_LOW_AMP, DOWN);
       setCtl(CTL_SRC, DOWN);
       setCtl(CTL_SPKR_SW, DOWN);
+
+      /* Turn on the refrigerator. */
+      /* ??  Dummy code for now. */
+      sendIRCommand(0x58A741BE);  
       break;
+      
     case SYS_OFFICE_UP:
       setCtl(CTL_LOW_AMP, DOWN);
       setCtl(CTL_SPKR_SW, UP);
-     break;
+
+      /* Turn on the refrigerator. */
+      /* ??  Dummy code for now. */
+      sendIRCommand(0x58A741BE);  
+      break;
+      
     default:
       Serial.println(F("Null state transition."));
   }
@@ -155,13 +198,19 @@ void stateOfficeUp(int newSysState)
     case SYS_LIVING_ROOM_UP:
       setCtl(CTL_LOW_AMP, UP);
       setCtl(CTL_SPKR_SW, DOWN);
+
+      /* Turn off the refrigerator. */
+      /* ??  Dummy code for now. */
+      sendIRCommand(0x58A741BE);  
       break;
+      
     case SYS_DOWN:
       setCtl(CTL_HIGH_AMP, DOWN);
       setCtl(CTL_LOW_AMP, DOWN);
       setCtl(CTL_SRC, DOWN);
       setCtl(CTL_SPKR_SW, DOWN);
       break;
+      
     default:
       Serial.println(F("Null state transition."));
   }
