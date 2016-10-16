@@ -18,6 +18,10 @@
 #define PIN_LOW_PWR     11      /* Low amp power output */
 #define PIN_SPKR_SW     12      /* Speaker switch output */
 
+/* Output pin HIGH level turns power on. */
+#define ON              HIGH
+#define OFF             LOW
+
 /* Objects for infrared communication. */
 IRrecv myReceiver(PIN_IR_IN);
 IRdecodeNEC myDecoder;
@@ -39,64 +43,6 @@ typedef struct {
   int       current;            /* Current state (HIGH or LOW) */
   int       debounce;           /* ms. remaining in debounce period */
 } t_sw;
-
-/* Control outputs */
-typedef enum {
-  CTL_SRC = 0,                  /* Source power */
-  CTL_HIGH_AMP,                 /* High amp power */
-  CTL_LOW_AMP,                  /* Low amp power */
-  CTL_SPKR_SW,                  /* Speaker switch */
-  N_CTL                         /* Number of controls */
-} ctls;
-
-/* Control output states. */
-typedef enum {
-  DOWN = 0,
-  UP = 1,
-  N_STATE                       /* Number of states */
-} ctl_state;
-
-/* Track control output states. */
-typedef struct {
-  int         pin;              /* Associated pin number */
-  ctl_state   current;          /* Current state (up or down) */
-  int         delay[N_STATE];   /* ms. to delay after entering new state */
-  char        *name;            /* Name (for debugging) */
-} t_ctlOutput;
-
-t_ctlOutput ctlOutputs[N_CTL] = {
-    {PIN_SRC_PWR, DOWN, {1*1000, 2*1000}, "Source"},
-    {PIN_HIGH_PWR, DOWN, {5*1000, 2*1000}, "High amp"},
-    {PIN_LOW_PWR, DOWN, {1*1000, 2*1000}, "Low amp"},
-    {PIN_SPKR_SW, DOWN, {100, 100}, "Speaker switch"},
-};
-
-
-/* Set a control output to the specified value. */
-void setCtl(ctls ctl, ctl_state newState)
-{
-  t_ctlOutput *ctlStruct = &ctlOutputs[ctl];
-  Serial.print(ctlStruct->name);
-
-  if (newState == ctlStruct->current){
-    Serial.print(F(" still at "));
-    Serial.println(newState, DEC);
-    return;
-  }
-
-  /* 
-   *  The state values are chosen so that they can be
-   *  passed directly to digitalWrite().
-   */
-  digitalWrite(ctlStruct->pin, newState);
-  ctlStruct->current = newState;
-
-  Serial.print(F(" set to "));
-  Serial.print(newState, DEC);
-  Serial.print(F("; delaying "));
-  Serial.println(ctlStruct->delay[newState], DEC);
-  delay(ctlStruct->delay[newState]);
-}
 
 
 /* 
@@ -121,12 +67,6 @@ void sendIRCommand(uint32_t value)
    myReceiver.enableIRIn();    //  Restart receiver
 }
 
-/* Commands. */
-enum {
-  CMD_LIVING_ROOM_POWER,
-  CMD_OFFICE_POWER,
-};
-
 
 /* System states. */
 enum {
@@ -141,10 +81,11 @@ void stateSysDown(int newSysState)
 {
   switch (newSysState){
     case SYS_LIVING_ROOM_UP:
-      setCtl(CTL_SPKR_SW, DOWN);
-      setCtl(CTL_SRC, UP);
-      setCtl(CTL_LOW_AMP, UP);
-      setCtl(CTL_HIGH_AMP, UP);
+      digitalWrite(PIN_SRC_PWR, ON);
+      delay(1*1000);
+      digitalWrite(PIN_LOW_PWR, ON);
+      delay(1*1000);
+      digitalWrite(PIN_HIGH_PWR, ON);
 
       /* Turn off the refrigerator. */
       /* ??  Dummy code for now. */
@@ -152,9 +93,10 @@ void stateSysDown(int newSysState)
       break;
       
     case SYS_OFFICE_UP:
-      setCtl(CTL_SPKR_SW, UP);
-      setCtl(CTL_SRC, UP);
-      setCtl(CTL_HIGH_AMP, UP);
+      digitalWrite(PIN_SPKR_SW, ON);
+      digitalWrite(PIN_SRC_PWR, ON);
+      delay(1*1000);
+      digitalWrite(PIN_HIGH_PWR, ON);
       break;
       
     default:
@@ -167,10 +109,10 @@ void stateLivingRoomUp(int newSysState)
 {
   switch (newSysState){
     case SYS_DOWN:
-      setCtl(CTL_HIGH_AMP, DOWN);
-      setCtl(CTL_LOW_AMP, DOWN);
-      setCtl(CTL_SRC, DOWN);
-      setCtl(CTL_SPKR_SW, DOWN);
+      digitalWrite(PIN_HIGH_PWR, OFF);
+      digitalWrite(PIN_LOW_PWR, OFF);
+      delay(5*1000);
+      digitalWrite(PIN_SRC_PWR, OFF);
 
       /* Turn on the refrigerator. */
       /* ??  Dummy code for now. */
@@ -178,8 +120,8 @@ void stateLivingRoomUp(int newSysState)
       break;
       
     case SYS_OFFICE_UP:
-      setCtl(CTL_LOW_AMP, DOWN);
-      setCtl(CTL_SPKR_SW, UP);
+      digitalWrite(PIN_SPKR_SW, ON);
+      digitalWrite(PIN_LOW_PWR, OFF);
 
       /* Turn on the refrigerator. */
       /* ??  Dummy code for now. */
@@ -196,8 +138,8 @@ void stateOfficeUp(int newSysState)
 {
   switch (newSysState){
     case SYS_LIVING_ROOM_UP:
-      setCtl(CTL_LOW_AMP, UP);
-      setCtl(CTL_SPKR_SW, DOWN);
+      digitalWrite(PIN_LOW_PWR, ON);
+      digitalWrite(PIN_SPKR_SW, OFF);
 
       /* Turn off the refrigerator. */
       /* ??  Dummy code for now. */
@@ -205,17 +147,16 @@ void stateOfficeUp(int newSysState)
       break;
       
     case SYS_DOWN:
-      setCtl(CTL_HIGH_AMP, DOWN);
-      setCtl(CTL_LOW_AMP, DOWN);
-      setCtl(CTL_SRC, DOWN);
-      setCtl(CTL_SPKR_SW, DOWN);
+      digitalWrite(PIN_HIGH_PWR, OFF);
+      delay(5*1000);
+      digitalWrite(PIN_SRC_PWR, OFF);
+      digitalWrite(PIN_SPKR_SW, OFF);
       break;
       
     default:
       Serial.println(F("Null state transition."));
   }
 }
-
 
 
 /* Move to the specified system state. */
@@ -255,6 +196,7 @@ void cmdLivingRoomPower()
       break;
   }
 }
+
 
 void cmdOfficePower()
 {
@@ -306,6 +248,7 @@ void setup()
   
   Serial.println(F("Initialization complete."));
 }
+
 
 void loop() {
 
