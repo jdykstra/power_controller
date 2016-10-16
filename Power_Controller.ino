@@ -1,11 +1,10 @@
-//  ?? Make this more specific once we know which protocols we need.
-#include <IRLibAll.h>
-
-#include <stdio.h>
-
 /*    power_controller.ino - Audio Power Controller Arduino sketch
  *     
  */
+
+#include <IRLibRecv.h>
+#include <IRLibDecodeBase.h>
+#include <IRLib_P01_NEC.h>
 
 /*  Hardware definitions.  */
 #define PIN_IR_IN       2       /* IR receive input */
@@ -20,7 +19,7 @@
 /* Objects for IRLib2. */
 /*  ??  Need to add IR output */
 IRrecv myReceiver(PIN_IR_IN);
-IRdecode myDecoder;
+IRdecodeNEC myDecoder;
 
 /* Switch inputs. */
 typedef enum {
