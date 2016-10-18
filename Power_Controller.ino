@@ -262,10 +262,10 @@ void loop() {
     if (myDecoder.protocolNum == NEC){
       digitalWrite(LED_BUILTIN, HIGH);
       switch (myDecoder.value){
-        case 0x58A701FE:
+        case 0x8322718E:
           cmdLivingRoomPower();
           break;
-         case 0x58A711EE:
+         case 0x83228C73:
            cmdOfficePower();
            break;
       }
