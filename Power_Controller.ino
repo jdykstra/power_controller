@@ -16,7 +16,7 @@
 #define PIN_SRC_PWR     9       /* Source power output */
 #define PIN_HIGH_PWR    10      /* High amp power output */
 #define PIN_LOW_PWR     11      /* Low amp power output */
-#define PIN_SPKR_SW     12      /* Speaker switch output */
+#define PIN_SPKR_SW     12      /* Speaker switch output--Currently N.C.  */
 
 /* Output pin HIGH level turns power on. */
 #define ON              HIGH
@@ -225,10 +225,9 @@ void setup()
   /* 
    *  Configure input and output pins, except those managed
    *  by IRLib2.
-   *  ??  Verify the outputs come up low.
    */
-  pinMode(PIN_PWR_SW, INPUT);
-  pinMode(PIN_OVER_SW, INPUT);
+  pinMode(PIN_PWR_SW, INPUT_PULLUP);
+  pinMode(PIN_OVER_SW, INPUT_PULLUP);
   pinMode(PIN_SRC_PWR, OUTPUT);
   pinMode(PIN_HIGH_PWR, OUTPUT);
   pinMode(PIN_LOW_PWR, OUTPUT);
@@ -274,7 +273,13 @@ void loop() {
     myReceiver.enableIRIn();    //  Restart receiver
   }
 
-  /* Process switch commands. */
-  
+  /* 
+   *  Process switch commands. We don't bother debouncing the
+   *  power switch;  processing it will take a lot longer than
+   *  the bounce period.
+   */
+  if (digitalRead(PIN_PWR_SW) == LOW){
+    cmdLivingRoomPower();
+  }
 }
 
