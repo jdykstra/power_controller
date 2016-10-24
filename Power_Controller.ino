@@ -82,7 +82,7 @@ void stateSysDown(int newSysState)
   switch (newSysState){
     case SYS_LIVING_ROOM_UP:
       digitalWrite(PIN_SRC_PWR, ON);
-      delay(1*1000);
+      delay(7*1000);
       digitalWrite(PIN_LOW_PWR, ON);
       delay(1*1000);
       digitalWrite(PIN_HIGH_PWR, ON);
@@ -95,7 +95,7 @@ void stateSysDown(int newSysState)
     case SYS_OFFICE_UP:
       digitalWrite(PIN_SPKR_SW, ON);
       digitalWrite(PIN_SRC_PWR, ON);
-      delay(1*1000);
+      delay(7*1000);
       digitalWrite(PIN_HIGH_PWR, ON);
       break;
       
