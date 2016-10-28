@@ -17,6 +17,7 @@
 #define PIN_HIGH_PWR    10      /* High amp power output */
 #define PIN_LOW_PWR     11      /* Low amp power output */
 #define PIN_SPKR_SW     12      /* Speaker switch output--Currently N.C.  */
+#define PIN_PILOT       LED_BUILTIN   /* Pilot light */
 
 /* Output pin HIGH level turns power on. */
 #define ON              HIGH
@@ -81,6 +82,7 @@ void stateSysDown(int newSysState)
 {
   switch (newSysState){
     case SYS_LIVING_ROOM_UP:
+      digitalWrite(PIN_PILOT, ON);
       digitalWrite(PIN_SRC_PWR, ON);
       delay(7*1000);
       digitalWrite(PIN_LOW_PWR, ON);
@@ -93,6 +95,7 @@ void stateSysDown(int newSysState)
       break;
       
     case SYS_OFFICE_UP:
+      digitalWrite(PIN_PILOT, ON);
       digitalWrite(PIN_SPKR_SW, ON);
       digitalWrite(PIN_SRC_PWR, ON);
       delay(7*1000);
@@ -109,6 +112,7 @@ void stateLivingRoomUp(int newSysState)
 {
   switch (newSysState){
     case SYS_DOWN:
+      digitalWrite(PIN_PILOT, OFF);
       digitalWrite(PIN_HIGH_PWR, OFF);
       digitalWrite(PIN_LOW_PWR, OFF);
       delay(5*1000);
@@ -147,6 +151,7 @@ void stateOfficeUp(int newSysState)
       break;
       
     case SYS_DOWN:
+      digitalWrite(PIN_PILOT, OFF);
       digitalWrite(PIN_HIGH_PWR, OFF);
       delay(5*1000);
       digitalWrite(PIN_SRC_PWR, OFF);
@@ -259,7 +264,6 @@ void loop() {
     Serial.print(F(" value "));
     Serial.println(myDecoder.value, HEX);
     if (myDecoder.protocolNum == NEC){
-      digitalWrite(LED_BUILTIN, HIGH);
       switch (myDecoder.value){
         case 0x8322718E:
           cmdLivingRoomPower();
@@ -268,7 +272,6 @@ void loop() {
            cmdOfficePower();
            break;
       }
-      digitalWrite(LED_BUILTIN, LOW);
     }
     myReceiver.enableIRIn();    //  Restart receiver
   }
