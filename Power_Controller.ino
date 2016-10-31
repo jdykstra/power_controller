@@ -90,8 +90,7 @@ void stateSysDown(int newSysState)
       digitalWrite(PIN_HIGH_PWR, ON);
 
       /* Turn off the refrigerator. */
-      /* ??  Dummy code for now. */
-      sendIRCommand(0x58A741BE);  
+      sendIRCommand(0x8322639C);  
       break;
       
     case SYS_OFFICE_UP:
@@ -119,8 +118,7 @@ void stateLivingRoomUp(int newSysState)
       digitalWrite(PIN_SRC_PWR, OFF);
 
       /* Turn on the refrigerator. */
-      /* ??  Dummy code for now. */
-      sendIRCommand(0x58A741BE);  
+      sendIRCommand(0x8322629D);  
       break;
       
     case SYS_OFFICE_UP:
