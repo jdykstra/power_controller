@@ -8,6 +8,17 @@
 #include <IRLib_P01_NEC.h>
 
 
+/* 
+ *  IR Command codes.  Some of these are shared with the
+ *  power controller, and ideally would be in a 
+ *  shared header file.
+ */
+#define CODE_LIVING_ROOM_POWER   0x8322718E
+#define CODE_OFFICE_POWER        0x83228C73
+#define CODE_REFRIG_OFF   0x8322639C
+#define CODE_REFRIG_ON    0x8322629D
+
+
 /*  Hardware definitions.  */
 #define PIN_IR_IN       2       /* IR receive input */
 #define PIN_IR_OUT      3       /* IR transmit output */
@@ -90,7 +101,7 @@ void stateSysDown(int newSysState)
       digitalWrite(PIN_HIGH_PWR, ON);
 
       /* Turn off the refrigerator. */
-      sendIRCommand(0x8322639C);  
+      sendIRCommand(CODE_REFRIG_OFF);  
       break;
       
     case SYS_OFFICE_UP:
@@ -118,7 +129,7 @@ void stateLivingRoomUp(int newSysState)
       digitalWrite(PIN_SRC_PWR, OFF);
 
       /* Turn on the refrigerator. */
-      sendIRCommand(0x8322629D);  
+      sendIRCommand(CODE_REFRIG_ON);  
       break;
       
     case SYS_OFFICE_UP:
@@ -126,8 +137,7 @@ void stateLivingRoomUp(int newSysState)
       digitalWrite(PIN_LOW_PWR, OFF);
 
       /* Turn on the refrigerator. */
-      /* ??  Dummy code for now. */
-      sendIRCommand(0x58A741BE);  
+      sendIRCommand(CODE_REFRIG_ON);  
       break;
       
     default:
@@ -144,8 +154,7 @@ void stateOfficeUp(int newSysState)
       digitalWrite(PIN_SPKR_SW, OFF);
 
       /* Turn off the refrigerator. */
-      /* ??  Dummy code for now. */
-      sendIRCommand(0x58A741BE);  
+      sendIRCommand(CODE_REFRIG_OFF);  
       break;
       
     case SYS_DOWN:
@@ -263,10 +272,10 @@ void loop() {
     Serial.println(myDecoder.value, HEX);
     if (myDecoder.protocolNum == NEC){
       switch (myDecoder.value){
-        case 0x8322718E:
+        case CODE_LIVING_ROOM_POWER:
           cmdLivingRoomPower();
           break;
-         case 0x83228C73:
+         case CODE_OFFICE_POWER:
            cmdOfficePower();
            break;
       }
