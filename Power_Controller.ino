@@ -7,6 +7,8 @@
 #include <IRLibSendBase.H>
 #include <IRLib_P01_NEC.h>
 
+/*  Build options. */
+#define IR_RETRANSMIT_INTERVAL 5*60*1000  /*  Retransmit refrig off code this frequently */
 
 /* 
  *  IR Command codes.  Some of these are shared with the
@@ -56,6 +58,9 @@ typedef struct {
   int       debounce;           /* ms. remaining in debounce period */
 } t_sw;
 
+
+/* Last timestamp an IR code was retransmitted.  */
+unsigned long last_ir_retransmit = millis();
 
 /* 
  *  Send an IR command.
@@ -291,5 +296,18 @@ void loop() {
   if (digitalRead(PIN_PWR_SW) == LOW){
     cmdLivingRoomPower();
   }
+
+  /*
+   * If the current system state isn't SYS_LIVING_ROOM_UP, periodically
+   * resend the IR command to turn the refigerator on.  This covers the
+   * case where something blocks the command when it is first sent on 
+   * power-down.
+   */
+   if ((currentSysState != SYS_LIVING_ROOM_UP) && 
+              (millis() - last_ir_retransmit > IR_RETRANSMIT_INTERVAL)){
+     sendIRCommand(CODE_REFRIG_ON);
+     last_ir_retransmit = millis();
+   }
+
 }
 
