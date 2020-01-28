@@ -11,9 +11,7 @@
 #define IR_RETRANSMIT_INTERVAL 5*60*1000  /*  Retransmit refrig off code this frequently */
 
 /* 
- *  IR Command codes.  Some of these are shared with the
- *  power controller, and ideally would be in a 
- *  shared header file.
+ *  IR Command codes. 
  */
 #define CODE_LIVING_ROOM_POWER   0x8322718E
 #define CODE_OFFICE_POWER        0x83228C73
@@ -23,7 +21,7 @@
 
 /*  Hardware definitions.  */
 #define PIN_IR_IN       2       /* IR receive input */
-#define PIN_IR_OUT      3       /* IR transmit output */
+#define PIN_CMD_OUT     3       /* DC level command to refrig controller */
 #define PIN_PWR_SW      7       /* Power switch input */
 #define PIN_OVER_SW     8       /* Override switch input */
 #define PIN_SRC_PWR     9       /* Source power output */
@@ -39,10 +37,7 @@
 /* Objects for infrared communication. */
 IRrecv myReceiver(PIN_IR_IN);
 IRdecodeNEC myDecoder;
-IRsendNEC mySender;
 
-/*  Number of times to repeat a sent IR code. */
-#define IR_REPEAT_COUNT 5
 
 /* Switch inputs. */
 typedef enum {
@@ -55,34 +50,7 @@ typedef enum {
 typedef struct {
   int       pin;                /* Associated pin number */
   int       current;            /* Current state (HIGH or LOW) */
-  int       debounce;           /* ms. remaining in debounce period */
 } t_sw;
-
-
-/* Last timestamp an IR code was retransmitted.  */
-unsigned long last_ir_retransmit = millis();
-
-/* 
- *  Send an IR command.
- */
-void sendIRCommand(uint32_t value)
-{
-  int i;
-
-  /* 
-   *  Send an IR command a number of times to maximize the chances
-   *  it will be received.
-   */
-  for (i=0; i < IR_REPEAT_COUNT; i++)
-    mySender.send(value);
-
-  /* 
-   *  According to the IRLib2 documentation, it's necessary to 
-   *  restart the receiver after sending something, because 
-   *  the timers (or interrupts?) may have been reconfigured.
-   */
-   myReceiver.enableIRIn();    //  Restart receiver
-}
 
 
 /* System states. */
@@ -106,7 +74,7 @@ void stateSysDown(int newSysState)
       digitalWrite(PIN_HIGH_PWR, ON);
 
       /* Turn off the refrigerator. */
-      sendIRCommand(CODE_REFRIG_OFF);  
+      digitalWrite(PIN_CMD_OUT, HIGH);
       break;
       
     case SYS_OFFICE_UP:
@@ -134,7 +102,7 @@ void stateLivingRoomUp(int newSysState)
       digitalWrite(PIN_SRC_PWR, OFF);
 
       /* Turn on the refrigerator. */
-      sendIRCommand(CODE_REFRIG_ON);  
+      digitalWrite(PIN_CMD_OUT, LOW);
       break;
       
     case SYS_OFFICE_UP:
@@ -142,7 +110,7 @@ void stateLivingRoomUp(int newSysState)
       digitalWrite(PIN_LOW_PWR, OFF);
 
       /* Turn on the refrigerator. */
-      sendIRCommand(CODE_REFRIG_ON);  
+      digitalWrite(PIN_CMD_OUT, LOW);
       break;
       
     default:
@@ -159,7 +127,7 @@ void stateOfficeUp(int newSysState)
       digitalWrite(PIN_SPKR_SW, OFF);
 
       /* Turn off the refrigerator. */
-      sendIRCommand(CODE_REFRIG_OFF);  
+      digitalWrite(PIN_CMD_OUT, HIGH);
       break;
       
     case SYS_DOWN:
@@ -249,6 +217,7 @@ void setup()
   pinMode(PIN_HIGH_PWR, OUTPUT);
   pinMode(PIN_LOW_PWR, OUTPUT);
   pinMode(PIN_SPKR_SW, OUTPUT);
+  pinMode(PIN_CMD_OUT, OUTPUT);
  
   /* Initialize IRLib2. */
   /*  
@@ -277,11 +246,21 @@ void loop() {
     Serial.println(myDecoder.value, HEX);
     if (myDecoder.protocolNum == NEC){
       switch (myDecoder.value){
+        
         case CODE_LIVING_ROOM_POWER:
           cmdLivingRoomPower();
           break;
+          
          case CODE_OFFICE_POWER:
            cmdOfficePower();
+           break;
+
+         case CODE_REFRIG_OFF:
+           digitalWrite(PIN_CMD_OUT, HIGH);
+           break;
+
+         case CODE_REFRIG_ON:
+           digitalWrite(PIN_CMD_OUT, LOW);
            break;
       }
     }
@@ -296,18 +275,4 @@ void loop() {
   if (digitalRead(PIN_PWR_SW) == LOW){
     cmdLivingRoomPower();
   }
-
-  /*
-   * If the current system state isn't SYS_LIVING_ROOM_UP, periodically
-   * resend the IR command to turn the refigerator on.  This covers the
-   * case where something blocks the command when it is first sent on 
-   * power-down.
-   */
-   if ((currentSysState != SYS_LIVING_ROOM_UP) && 
-              (millis() - last_ir_retransmit > IR_RETRANSMIT_INTERVAL)){
-     sendIRCommand(CODE_REFRIG_ON);
-     last_ir_retransmit = millis();
-   }
-
 }
-
