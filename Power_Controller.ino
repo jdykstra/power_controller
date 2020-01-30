@@ -24,9 +24,9 @@
 #define PIN_CMD_OUT     3       /* DC level command to refrig controller */
 #define PIN_PWR_SW      7       /* Power switch input */
 #define PIN_OVER_SW     8       /* Override switch input */
-#define PIN_SRC_PWR     9       /* Source power output */
-#define PIN_HIGH_PWR    10      /* High amp power output */
-#define PIN_LOW_PWR     11      /* Low amp power output */
+#define PIN_PWR_A       9       /* Power output A */
+#define PIN_PWR_B       10      /* Power output B */
+#define PIN_PWR_C       11      /* Power output C */
 #define PIN_SPKR_SW     12      /* Speaker switch output--Currently N.C.  */
 #define PIN_PILOT       LED_BUILTIN   /* Pilot light */
 
@@ -66,12 +66,20 @@ void stateSysDown(int newSysState)
 {
   switch (newSysState){
     case SYS_LIVING_ROOM_UP:
+      Serial.println(F("Power system up."));
+
+      /*  
+       *   There's some sort of interaction between the controller's  
+       *   power supply and relay picking.  Pick each one 
+       *   individually to avoid this.
+       */
       digitalWrite(PIN_PILOT, ON);
-      digitalWrite(PIN_SRC_PWR, ON);
-      delay(7*1000);
-      digitalWrite(PIN_LOW_PWR, ON);
       delay(1*1000);
-      digitalWrite(PIN_HIGH_PWR, ON);
+      digitalWrite(PIN_PWR_A, ON);
+      delay(1*1000);
+      digitalWrite(PIN_PWR_B, ON);
+      delay(1*1000);
+      digitalWrite(PIN_PWR_C, ON);
 
       /* Turn off the refrigerator. */
       digitalWrite(PIN_CMD_OUT, HIGH);
@@ -80,9 +88,9 @@ void stateSysDown(int newSysState)
     case SYS_OFFICE_UP:
       digitalWrite(PIN_PILOT, ON);
       digitalWrite(PIN_SPKR_SW, ON);
-      digitalWrite(PIN_SRC_PWR, ON);
+      digitalWrite(PIN_PWR_A, ON);
       delay(7*1000);
-      digitalWrite(PIN_HIGH_PWR, ON);
+      digitalWrite(PIN_PWR_B, ON);
       break;
       
     default:
@@ -95,11 +103,18 @@ void stateLivingRoomUp(int newSysState)
 {
   switch (newSysState){
     case SYS_DOWN:
+      Serial.println(F("Power system down."));
       digitalWrite(PIN_PILOT, OFF);
-      digitalWrite(PIN_HIGH_PWR, OFF);
-      digitalWrite(PIN_LOW_PWR, OFF);
-      delay(5*1000);
-      digitalWrite(PIN_SRC_PWR, OFF);
+      /*  
+       *   There's some sort of interaction between the controller's  
+       *   power supply and relay dropping.  Drop each one 
+       *   individually to avoid this.
+       */
+      digitalWrite(PIN_PWR_B, OFF);
+      delay(1*1000);
+      digitalWrite(PIN_PWR_C, OFF);
+      delay(1*1000);
+      digitalWrite(PIN_PWR_A, OFF);
 
       /* Turn on the refrigerator. */
       digitalWrite(PIN_CMD_OUT, LOW);
@@ -107,7 +122,7 @@ void stateLivingRoomUp(int newSysState)
       
     case SYS_OFFICE_UP:
       digitalWrite(PIN_SPKR_SW, ON);
-      digitalWrite(PIN_LOW_PWR, OFF);
+      digitalWrite(PIN_PWR_C, OFF);
 
       /* Turn on the refrigerator. */
       digitalWrite(PIN_CMD_OUT, LOW);
@@ -123,7 +138,7 @@ void stateOfficeUp(int newSysState)
 {
   switch (newSysState){
     case SYS_LIVING_ROOM_UP:
-      digitalWrite(PIN_LOW_PWR, ON);
+      digitalWrite(PIN_PWR_C, ON);
       digitalWrite(PIN_SPKR_SW, OFF);
 
       /* Turn off the refrigerator. */
@@ -132,9 +147,9 @@ void stateOfficeUp(int newSysState)
       
     case SYS_DOWN:
       digitalWrite(PIN_PILOT, OFF);
-      digitalWrite(PIN_HIGH_PWR, OFF);
+      digitalWrite(PIN_PWR_B, OFF);
       delay(5*1000);
-      digitalWrite(PIN_SRC_PWR, OFF);
+      digitalWrite(PIN_PWR_A, OFF);
       digitalWrite(PIN_SPKR_SW, OFF);
       break;
       
@@ -213,9 +228,9 @@ void setup()
    */
   pinMode(PIN_PWR_SW, INPUT_PULLUP);
   pinMode(PIN_OVER_SW, INPUT_PULLUP);
-  pinMode(PIN_SRC_PWR, OUTPUT);
-  pinMode(PIN_HIGH_PWR, OUTPUT);
-  pinMode(PIN_LOW_PWR, OUTPUT);
+  pinMode(PIN_PWR_A, OUTPUT);
+  pinMode(PIN_PWR_B, OUTPUT);
+  pinMode(PIN_PWR_C, OUTPUT);
   pinMode(PIN_SPKR_SW, OUTPUT);
   pinMode(PIN_CMD_OUT, OUTPUT);
  
