@@ -1,5 +1,7 @@
 /*    power_controller.ino - Audio Power Controller Arduino sketch
  *     
+ *     Note - This still contains code supporting the audio system in my office, which is no longer needed.
+ *     That includes the office power sequencing code, the speaker switch, and the override switch.
  */
 
 #include <IRLibRecv.h>
@@ -105,14 +107,10 @@ void stateLivingRoomUp(int newSysState)
     case SYS_DOWN:
       Serial.println(F("Power system down."));
       digitalWrite(PIN_PILOT, OFF);
-      /*  
-       *   There's some sort of interaction between the controller's  
-       *   power supply and relay dropping.  Drop each one 
-       *   individually to avoid this.
-       */
-      digitalWrite(PIN_PWR_B, OFF);
-      delay(1*1000);
+      
       digitalWrite(PIN_PWR_C, OFF);
+      delay(1*1000);
+      digitalWrite(PIN_PWR_B, OFF);
       delay(1*1000);
       digitalWrite(PIN_PWR_A, OFF);
 
@@ -238,7 +236,7 @@ void setup()
   /*  
    *   The IR repeater lengthens marks, at least partially due to
    *   the slow fall time of the line from the receivers to the 
-   *   central unit due to line capacitance.  This compensory 
+   *   power controller due to line capacitance.  This compensory 
    *   value was determined empirically.
    */
   myReceiver.markExcess = 4*myReceiver.markExcess;
