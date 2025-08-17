@@ -1,5 +1,5 @@
 /*    power_controller.ino - Audio Power Controller Arduino sketch
- *     
+ *
  *     Note - This still contains code supporting the audio system in my office, which is no longer needed.
  *     That includes the office power sequencing code, the speaker switch, and the override switch.
  */
@@ -12,8 +12,8 @@
 /*  Build options. */
 #define IR_RETRANSMIT_INTERVAL 5*60*1000  /*  Retransmit refrig off code this frequently */
 
-/* 
- *  IR Command codes. 
+/*
+ *  IR Command codes.
  */
 #define CODE_LIVING_ROOM_POWER   0x8322718E
 #define CODE_OFFICE_POWER        0x83228C73
@@ -70,15 +70,15 @@ void stateSysDown(int newSysState)
     case SYS_LIVING_ROOM_UP:
       Serial.println(F("Power system up."));
 
-      /*  
-       *   There's some sort of interaction between the controller's  
-       *   power supply and relay picking.  Pick each one 
+      /*
+       *   There's some sort of interaction between the controller's
+       *   power supply and relay picking.  Pick each one
        *   individually to avoid this.
        */
       digitalWrite(PIN_PILOT, ON);
       delay(1*1000);
       digitalWrite(PIN_PWR_A, ON);
-      delay(1*1000);
+      delay(3*1000);
       digitalWrite(PIN_PWR_B, ON);
       delay(1*1000);
       digitalWrite(PIN_PWR_C, ON);
@@ -86,7 +86,7 @@ void stateSysDown(int newSysState)
       /* Turn off the refrigerator. */
       digitalWrite(PIN_CMD_OUT, HIGH);
       break;
-      
+
     case SYS_OFFICE_UP:
       digitalWrite(PIN_PILOT, ON);
       digitalWrite(PIN_SPKR_SW, ON);
@@ -94,7 +94,7 @@ void stateSysDown(int newSysState)
       delay(7*1000);
       digitalWrite(PIN_PWR_B, ON);
       break;
-      
+
     default:
       Serial.println(F("Null state transition."));
   }
@@ -107,9 +107,9 @@ void stateLivingRoomUp(int newSysState)
     case SYS_DOWN:
       Serial.println(F("Power system down."));
       digitalWrite(PIN_PILOT, OFF);
-      
+
       digitalWrite(PIN_PWR_C, OFF);
-      delay(1*1000);
+      delay(3*1000);
       digitalWrite(PIN_PWR_B, OFF);
       delay(1*1000);
       digitalWrite(PIN_PWR_A, OFF);
@@ -117,7 +117,7 @@ void stateLivingRoomUp(int newSysState)
       /* Turn on the refrigerator. */
       digitalWrite(PIN_CMD_OUT, LOW);
       break;
-      
+
     case SYS_OFFICE_UP:
       digitalWrite(PIN_SPKR_SW, ON);
       digitalWrite(PIN_PWR_C, OFF);
@@ -125,7 +125,7 @@ void stateLivingRoomUp(int newSysState)
       /* Turn on the refrigerator. */
       digitalWrite(PIN_CMD_OUT, LOW);
       break;
-      
+
     default:
       Serial.println(F("Null state transition."));
   }
@@ -142,7 +142,7 @@ void stateOfficeUp(int newSysState)
       /* Turn off the refrigerator. */
       digitalWrite(PIN_CMD_OUT, HIGH);
       break;
-      
+
     case SYS_DOWN:
       digitalWrite(PIN_PILOT, OFF);
       digitalWrite(PIN_PWR_B, OFF);
@@ -150,7 +150,7 @@ void stateOfficeUp(int newSysState)
       digitalWrite(PIN_PWR_A, OFF);
       digitalWrite(PIN_SPKR_SW, OFF);
       break;
-      
+
     default:
       Serial.println(F("Null state transition."));
   }
@@ -220,7 +220,7 @@ void setup()
   Serial.begin(9600);
   delay(2000);while(!Serial);     //delay for Leonardo
 
-  /* 
+  /*
    *  Configure input and output pins, except those managed
    *  by IRLib2.
    */
@@ -231,19 +231,19 @@ void setup()
   pinMode(PIN_PWR_C, OUTPUT);
   pinMode(PIN_SPKR_SW, OUTPUT);
   pinMode(PIN_CMD_OUT, OUTPUT);
- 
+
   /* Initialize IRLib2. */
-  /*  
+  /*
    *   The IR repeater lengthens marks, at least partially due to
-   *   the slow fall time of the line from the receivers to the 
-   *   power controller due to line capacitance.  This compensory 
+   *   the slow fall time of the line from the receivers to the
+   *   power controller due to line capacitance.  This compensory
    *   value was determined empirically.
    */
   myReceiver.markExcess = 4*myReceiver.markExcess;
-  
+
   IRLib_NoOutput();
   myReceiver.enableIRIn();
-  
+
   Serial.println(F("Initialization complete."));
 }
 
@@ -259,11 +259,11 @@ void loop() {
     Serial.println(myDecoder.value, HEX);
     if (myDecoder.protocolNum == NEC){
       switch (myDecoder.value){
-        
+
         case CODE_LIVING_ROOM_POWER:
           cmdLivingRoomPower();
           break;
-          
+
          case CODE_OFFICE_POWER:
            cmdOfficePower();
            break;
@@ -280,7 +280,7 @@ void loop() {
     myReceiver.enableIRIn();    //  Restart receiver
   }
 
-  /* 
+  /*
    *  Process switch commands. We don't bother debouncing the
    *  power switch;  processing it will take a lot longer than
    *  the bounce period.
