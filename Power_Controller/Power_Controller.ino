@@ -214,6 +214,89 @@ void cmdOfficePower()
 }
 
 
+void processIRCommands()
+{
+  /* Process IR commands. */
+  if (myReceiver.getResults()) {
+    myDecoder.decode();
+    Serial.print(F("IR protocol "));
+    Serial.print(myDecoder.protocolNum, DEC);
+    Serial.print(F(" value "));
+    Serial.println(myDecoder.value, HEX);
+    if (myDecoder.protocolNum == NEC){
+      switch (myDecoder.value){
+
+        case CODE_LIVING_ROOM_POWER:
+          cmdLivingRoomPower();
+          break;
+
+         case CODE_OFFICE_POWER:
+           cmdOfficePower();
+           break;
+
+         case CODE_REFRIG_OFF:
+           digitalWrite(PIN_CMD_OUT, HIGH);
+           break;
+
+         case CODE_REFRIG_ON:
+           digitalWrite(PIN_CMD_OUT, LOW);
+           break;
+      }
+    }
+    myReceiver.enableIRIn();    //  Restart receiver
+  }
+}
+
+
+void processSerialCommands()
+{
+  if (Serial.available() > 0) {
+    String command = Serial.readStringUntil('\n');
+    command.trim();
+    
+    // Parse command format: "system|refrigerator [whitespace] on|off"
+    int spaceIndex = command.indexOf(' ');
+    if (spaceIndex == -1) {
+      Serial.println(F("Invalid command format. Use: system|refrigerator on|off"));
+      return;
+    }
+    
+    String device = command.substring(0, spaceIndex);
+    String action = command.substring(spaceIndex + 1);
+    
+    // Remove any extra whitespace
+    device.trim();
+    action.trim();
+    
+    if (device.equalsIgnoreCase("system")) {
+      if (action.equalsIgnoreCase("on")) {
+        if (currentSysState == SYS_DOWN) {
+          cmdLivingRoomPower();
+        }
+      } else if (action.equalsIgnoreCase("off")) {
+        if (currentSysState != SYS_DOWN) {
+          cmdLivingRoomPower();
+        }
+      } else {
+        Serial.println(F("Invalid action. Use 'on' or 'off'"));
+      }
+    } else if (device.equalsIgnoreCase("refrigerator")) {
+      if (action.equalsIgnoreCase("on")) {
+        digitalWrite(PIN_CMD_OUT, LOW);
+        Serial.println(F("Refrigerator turned on"));
+      } else if (action.equalsIgnoreCase("off")) {
+        digitalWrite(PIN_CMD_OUT, HIGH);
+        Serial.println(F("Refrigerator turned off"));
+      } else {
+        Serial.println(F("Invalid action. Use 'on' or 'off'"));
+      }
+    } else {
+      Serial.println(F("Invalid device. Use 'system' or 'refrigerator'"));
+    }
+  }
+}
+
+
 void setup()
 {
   /*  Configure serial port for debugging. */
@@ -250,42 +333,14 @@ void setup()
 
 void loop() {
 
-  /* Process IR commands. */
-  if (myReceiver.getResults()) {
-    myDecoder.decode();
-    Serial.print(F("IR protocol "));
-    Serial.print(myDecoder.protocolNum, DEC);
-    Serial.print(F(" value "));
-    Serial.println(myDecoder.value, HEX);
-    if (myDecoder.protocolNum == NEC){
-      switch (myDecoder.value){
-
-        case CODE_LIVING_ROOM_POWER:
-          cmdLivingRoomPower();
-          break;
-
-         case CODE_OFFICE_POWER:
-           cmdOfficePower();
-           break;
-
-         case CODE_REFRIG_OFF:
-           digitalWrite(PIN_CMD_OUT, HIGH);
-           break;
-
-         case CODE_REFRIG_ON:
-           digitalWrite(PIN_CMD_OUT, LOW);
-           break;
-      }
-    }
-    myReceiver.enableIRIn();    //  Restart receiver
-  }
-
-  /*
-   *  Process switch commands. We don't bother debouncing the
+  /* Process switch commands. We don't bother debouncing the
    *  power switch;  processing it will take a lot longer than
    *  the bounce period.
    */
   if (digitalRead(PIN_PWR_SW) == LOW){
     cmdLivingRoomPower();
   }
+
+  processIRCommands();
+  processSerialCommands();
 }
