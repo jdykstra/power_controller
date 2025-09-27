@@ -1,7 +1,25 @@
-/*    power_controller.ino - Audio Power Controller Arduino sketch
+/*    power_controller.ino - Audio Power Controller Arduino sketch */
+
+/*
+ *  This module accepts commands via the Arduino serial-over-USB interface:
  *
- *     Note - This still contains code supporting the audio system in my office, which is no longer needed.
- *     That includes the office power sequencing code, the speaker switch, and the override switch.
+ *  Control Commands (set):
+ *    set system on      - Turn on the audio power system
+ *    set system off     - Turn off the audio power system
+ *    set refrigerator on    - Turn on the refrigerator
+ *    set refrigerator off   - Turn off the refrigerator
+ *
+ *  Status Commands:
+ *    status system      - Returns "on" or "off" (current system state)
+ *    status refrigerator - Returns "on" or "off" (current refrigerator state)
+ *
+ *  Response Format:
+ *    OK                 - Command executed successfully
+ *    on/off             - Status response
+ *    ERR <message>      - Error with description
+ * 
+ *  Reported efrigerator status may not reflect actual state due to the refrigerator controller's
+ *  implementation of compressor protection delays.
  */
 
 #include <IRLibRecv.h>
@@ -15,8 +33,7 @@
 /*
  *  IR Command codes.
  */
-#define CODE_LIVING_ROOM_POWER   0x8322718E
-#define CODE_OFFICE_POWER        0x83228C73
+#define CODE_SYSTEM_POWER   0x8322718E
 #define CODE_REFRIG_OFF   0x8322639C
 #define CODE_REFRIG_ON    0x8322629D
 
@@ -25,11 +42,9 @@
 #define PIN_IR_IN       2       /* IR receive input */
 #define PIN_CMD_OUT     3       /* DC level command to refrig controller */
 #define PIN_PWR_SW      7       /* Power switch input */
-#define PIN_OVER_SW     8       /* Override switch input */
 #define PIN_PWR_A       9       /* Power output A */
 #define PIN_PWR_B       10      /* Power output B */
 #define PIN_PWR_C       11      /* Power output C */
-#define PIN_SPKR_SW     12      /* Speaker switch output--Currently N.C.  */
 #define PIN_PILOT       LED_BUILTIN   /* Pilot light */
 
 /* Output pin HIGH level turns power on. */
@@ -43,8 +58,7 @@ IRdecodeNEC myDecoder;
 
 /* Switch inputs. */
 typedef enum {
-  SW_LR_PWR = 0,                /* Living room power */
-  SW_OVERRIDE,                  /* Override */
+  SW_SYS_PWR = 0,                /* System power */
   N_SW                          /* Number of switches */
 } sws;
 
@@ -58,16 +72,22 @@ typedef struct {
 /* System states. */
 enum {
   SYS_DOWN,
-  SYS_LIVING_ROOM_UP,
-  SYS_OFFICE_UP
+  SYS_UP
+};
+
+/* Refrigerator states. */
+enum {
+  REFRIG_ON,
+  REFRIG_OFF
 };
 
 int currentSysState = SYS_DOWN;
+int currentRefrigState = REFRIG_ON;  /* Default state when system is down */
 
 void stateSysDown(int newSysState)
 {
   switch (newSysState){
-    case SYS_LIVING_ROOM_UP:
+    case SYS_UP:
       Serial.println(F("Power system up."));
 
       /*
@@ -85,14 +105,7 @@ void stateSysDown(int newSysState)
 
       /* Turn off the refrigerator. */
       digitalWrite(PIN_CMD_OUT, HIGH);
-      break;
-
-    case SYS_OFFICE_UP:
-      digitalWrite(PIN_PILOT, ON);
-      digitalWrite(PIN_SPKR_SW, ON);
-      digitalWrite(PIN_PWR_A, ON);
-      delay(7*1000);
-      digitalWrite(PIN_PWR_B, ON);
+      currentRefrigState = REFRIG_OFF;
       break;
 
     default:
@@ -101,7 +114,7 @@ void stateSysDown(int newSysState)
 }
 
 
-void stateLivingRoomUp(int newSysState)
+void stateSysUp(int newSysState)
 {
   switch (newSysState){
     case SYS_DOWN:
@@ -116,39 +129,7 @@ void stateLivingRoomUp(int newSysState)
 
       /* Turn on the refrigerator. */
       digitalWrite(PIN_CMD_OUT, LOW);
-      break;
-
-    case SYS_OFFICE_UP:
-      digitalWrite(PIN_SPKR_SW, ON);
-      digitalWrite(PIN_PWR_C, OFF);
-
-      /* Turn on the refrigerator. */
-      digitalWrite(PIN_CMD_OUT, LOW);
-      break;
-
-    default:
-      Serial.println(F("Null state transition."));
-  }
-}
-
-
-void stateOfficeUp(int newSysState)
-{
-  switch (newSysState){
-    case SYS_LIVING_ROOM_UP:
-      digitalWrite(PIN_PWR_C, ON);
-      digitalWrite(PIN_SPKR_SW, OFF);
-
-      /* Turn off the refrigerator. */
-      digitalWrite(PIN_CMD_OUT, HIGH);
-      break;
-
-    case SYS_DOWN:
-      digitalWrite(PIN_PILOT, OFF);
-      digitalWrite(PIN_PWR_B, OFF);
-      delay(5*1000);
-      digitalWrite(PIN_PWR_A, OFF);
-      digitalWrite(PIN_SPKR_SW, OFF);
+      currentRefrigState = REFRIG_ON;
       break;
 
     default:
@@ -165,12 +146,8 @@ void setSysState(int newSysState)
       stateSysDown(newSysState);
       break;
 
-    case SYS_LIVING_ROOM_UP:
-      stateLivingRoomUp(newSysState);
-      break;
-
-    case SYS_OFFICE_UP:
-      stateOfficeUp(newSysState);
+    case SYS_UP:
+      stateSysUp(newSysState);
       break;
   }
 
@@ -178,40 +155,19 @@ void setSysState(int newSysState)
 }
 
 
-void cmdLivingRoomPower()
+void cmdSysPower()
 {
   switch (currentSysState){
     case SYS_DOWN:
-      setSysState(SYS_LIVING_ROOM_UP);
+      setSysState(SYS_UP);
       break;
 
-    case SYS_LIVING_ROOM_UP:
-      setSysState(SYS_DOWN);
-      break;
-
-    case SYS_OFFICE_UP:
-      setSysState(SYS_LIVING_ROOM_UP);
-      break;
-  }
-}
-
-
-void cmdOfficePower()
-{
-  switch (currentSysState){
-    case SYS_DOWN:
-      setSysState(SYS_OFFICE_UP);
-      break;
-
-    case SYS_LIVING_ROOM_UP:
-      setSysState(SYS_OFFICE_UP);
-      break;
-
-    case SYS_OFFICE_UP:
+    case SYS_UP:
       setSysState(SYS_DOWN);
       break;
   }
 }
+
 
 
 void processIRCommands()
@@ -226,25 +182,29 @@ void processIRCommands()
     if (myDecoder.protocolNum == NEC){
       switch (myDecoder.value){
 
-        case CODE_LIVING_ROOM_POWER:
-          cmdLivingRoomPower();
+        case CODE_SYSTEM_POWER:
+          cmdSysPower();
           break;
-
-         case CODE_OFFICE_POWER:
-           cmdOfficePower();
-           break;
 
          case CODE_REFRIG_OFF:
            digitalWrite(PIN_CMD_OUT, HIGH);
+           currentRefrigState = REFRIG_OFF;
            break;
 
          case CODE_REFRIG_ON:
            digitalWrite(PIN_CMD_OUT, LOW);
+           currentRefrigState = REFRIG_ON;
            break;
       }
     }
     myReceiver.enableIRIn();    //  Restart receiver
   }
+}
+
+
+void sendOkResponse()
+{
+  Serial.println(F("OK"));
 }
 
 
@@ -254,44 +214,85 @@ void processSerialCommands()
     String command = Serial.readStringUntil('\n');
     command.trim();
     
-    // Parse command format: "system|refrigerator [whitespace] on|off"
+    // Parse command format: "set|status device [action]"
     int spaceIndex = command.indexOf(' ');
     if (spaceIndex == -1) {
-      Serial.println(F("Invalid command format. Use: system|refrigerator on|off"));
+      Serial.println(F("ERR Invalid command format. Use: set|status device [action]"));
       return;
     }
     
-    String device = command.substring(0, spaceIndex);
-    String action = command.substring(spaceIndex + 1);
+    String verb = command.substring(0, spaceIndex);
+    String remainder = command.substring(spaceIndex + 1);
     
     // Remove any extra whitespace
-    device.trim();
-    action.trim();
+    verb.trim();
+    remainder.trim();
     
-    if (device.equalsIgnoreCase("system")) {
-      if (action.equalsIgnoreCase("on")) {
-        if (currentSysState == SYS_DOWN) {
-          cmdLivingRoomPower();
-        }
-      } else if (action.equalsIgnoreCase("off")) {
-        if (currentSysState != SYS_DOWN) {
-          cmdLivingRoomPower();
-        }
-      } else {
-        Serial.println(F("Invalid action. Use 'on' or 'off'"));
+    if (verb.equalsIgnoreCase("set")) {
+      // Parse "set device action"
+      int deviceSpaceIndex = remainder.indexOf(' ');
+      if (deviceSpaceIndex == -1) {
+        Serial.println(F("ERR Invalid set command format. Use: set device action"));
+        return;
       }
-    } else if (device.equalsIgnoreCase("refrigerator")) {
-      if (action.equalsIgnoreCase("on")) {
-        digitalWrite(PIN_CMD_OUT, LOW);
-        Serial.println(F("Refrigerator turned on"));
-      } else if (action.equalsIgnoreCase("off")) {
-        digitalWrite(PIN_CMD_OUT, HIGH);
-        Serial.println(F("Refrigerator turned off"));
+      
+      String device = remainder.substring(0, deviceSpaceIndex);
+      String action = remainder.substring(deviceSpaceIndex + 1);
+      device.trim();
+      action.trim();
+      
+      if (device.equalsIgnoreCase("system")) {
+        if (action.equalsIgnoreCase("on")) {
+          if (currentSysState == SYS_DOWN) {
+            cmdSysPower();
+            sendOkResponse();
+          } else {
+            sendOkResponse(); // Already on
+          }
+        } else if (action.equalsIgnoreCase("off")) {
+          if (currentSysState != SYS_DOWN) {
+            cmdSysPower();
+            sendOkResponse();
+          } else {
+            sendOkResponse(); // Already off
+          }
+        } else {
+          Serial.println(F("ERR Invalid action. Use 'on' or 'off'"));
+        }
+      } else if (device.equalsIgnoreCase("refrigerator")) {
+        if (action.equalsIgnoreCase("on")) {
+          digitalWrite(PIN_CMD_OUT, LOW);
+          currentRefrigState = REFRIG_ON;
+          sendOkResponse();
+        } else if (action.equalsIgnoreCase("off")) {
+          digitalWrite(PIN_CMD_OUT, HIGH);
+          currentRefrigState = REFRIG_OFF;
+          sendOkResponse();
+        } else {
+          Serial.println(F("ERR Invalid action. Use 'on' or 'off'"));
+        }
       } else {
-        Serial.println(F("Invalid action. Use 'on' or 'off'"));
+        Serial.println(F("ERR Invalid device. Use 'system' or 'refrigerator'"));
+      }
+    } else if (verb.equalsIgnoreCase("status")) {
+      // Parse "status device"
+      if (remainder.equalsIgnoreCase("system")) {
+        if (currentSysState == SYS_UP) {
+          Serial.println(F("on"));
+        } else {
+          Serial.println(F("off"));
+        }
+      } else if (remainder.equalsIgnoreCase("refrigerator")) {
+        if (currentRefrigState == REFRIG_ON) {
+          Serial.println(F("on"));
+        } else {
+          Serial.println(F("off"));
+        }
+      } else {
+        Serial.println(F("ERR Invalid device. Use 'system' or 'refrigerator'"));
       }
     } else {
-      Serial.println(F("Invalid device. Use 'system' or 'refrigerator'"));
+      Serial.println(F("ERR Invalid command. Use 'set' or 'status'"));
     }
   }
 }
@@ -308,11 +309,9 @@ void setup()
    *  by IRLib2.
    */
   pinMode(PIN_PWR_SW, INPUT_PULLUP);
-  pinMode(PIN_OVER_SW, INPUT_PULLUP);
   pinMode(PIN_PWR_A, OUTPUT);
   pinMode(PIN_PWR_B, OUTPUT);
   pinMode(PIN_PWR_C, OUTPUT);
-  pinMode(PIN_SPKR_SW, OUTPUT);
   pinMode(PIN_CMD_OUT, OUTPUT);
 
   /* Initialize IRLib2. */
@@ -338,7 +337,7 @@ void loop() {
    *  the bounce period.
    */
   if (digitalRead(PIN_PWR_SW) == LOW){
-    cmdLivingRoomPower();
+    cmdSysPower();
   }
 
   processIRCommands();
