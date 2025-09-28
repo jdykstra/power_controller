@@ -1,13 +1,12 @@
 # Copilot Instructions for Power Controller
 
 ## Project Overview
-This is an Arduino-based audio power controller that manages multi-zone audio system power sequencing, IR remote control, and refrigerator automation. The system controls power relays with precise timing sequences to prevent electrical issues.
+This is an Arduino-based audio power controller that manages audio system power sequencing and refrigerator automation. The system controls power relays with precise timing sequences to prevent electrical issues and includes serial command interface and physical switch inputs.
 
 ## Architecture & State Machine
 - **Simplified state-based design**: Two main states (`SYS_DOWN`, `SYS_UP`)
-- **State transition functions**: `stateSysDown()` and `stateSysUp()` handle transitions
-- **Central state manager**: `setSysState()` coordinates all transitions
-- **Command processor**: `cmdSysPower()` handles power toggle commands
+- **State transition functions**: `setSystemState()` and `setRefrigState()` handle transitions
+- **Refrigerator control**: Dedicated `setRefrigState()` function with override protection
 
 ## Critical Hardware Patterns
 ### Power Sequencing
@@ -22,15 +21,23 @@ digitalWrite(PIN_PWR_C, ON);
 **Why**: Hardware interactions between controller power supply and relay picking require sequential activation.
 
 ### Pin Definitions
-- Power outputs: `PIN_PWR_A` (9), `PIN_PWR_B` (10), `PIN_PWR_C` (11) 
-- Control: `PIN_CMD_OUT` (3) for refrigerator
-- Inputs: `PIN_PWR_SW` (7) for power switch, `PIN_IR_IN` (2) for IR receiver
+- Power outputs: `PIN_PWR_A` (9), `PIN_PWR_B` (10), `PIN_PWR_C` (11), `PIN_PILOT` (LED_BUILTIN)
+- Control: `PIN_CMD_OUT` (3) for refrigerator (HIGH = off, LOW = on)
+- Inputs: `PIN_PWR_SW` (7) for power switch, `PIN_REFRIG_OVERRIDE` (6) for refrigerator override
 
-## IR Communication
-- Uses IRLib2 with NEC protocol
-- **Critical**: `markExcess` compensation for IR repeater timing issues
-- Commands: `CODE_SYSTEM_POWER` for system power, refrigerator on/off codes
-- Always call `myReceiver.enableIRIn()` after processing commands
+## Serial Command Interface
+- **Control Commands**: Require "set " prefix (e.g., `set system on`, `set refrigerator off`)
+- **Status Commands**: `status system` or `status refrigerator` return "on"/"off"
+- **Response Format**: "OK" for success, "on"/"off" for status, "ERR <message>" for errors
+- **Processing**: `processSerialCommands()` delegates to `processSetCommand()` and `processStatusCommand()`
+- **Action Parsing**: `parseOnOffAction()` converts "on"/"off" strings to numeric values
+- **Action Parsing**: `parseOnOffAction()` converts "on"/"off" strings to numeric values
+
+## Refrigerator Override Logic
+- **Override Switch**: `PIN_REFRIG_OVERRIDE` (LOW = active/override on)
+- **Behavior**: When override is active, ignore requests to turn refrigerator off
+- **Transition Handling**: Override activation (LOW) turns refrigerator on if it was off; deactivation (HIGH) leaves state unchanged
+- **Monitoring**: Continuous check in `loop()` with `prevOverrideState` tracking
 
 ## Development Patterns
 ### Naming Conventions
@@ -40,14 +47,22 @@ digitalWrite(PIN_PWR_C, ON);
 
 ### Debugging
 - Serial output at 9600 baud with F() macro for flash string storage
-- IR debug: prints protocol and hex value for all received codes
-- State transitions announced via Serial
+- Command responses provide feedback for all operations
+- Silent operation except for command responses
 
 ### Error Prevention
 - Input pullups on switches to prevent floating inputs
 - No switch debouncing on power switch (power sequencing time > bounce period)
+- Override switch prevents unwanted refrigerator power-off
+
+### Coding Style
+- If a block only contains a single statement, remove the "{}" braces
+- Put the opening curly bracket of a function on the same line as the function declaration
 
 ## Key Integration Points
+- **Refrigerator control**: `PIN_CMD_OUT` with state tracking in `currentRefrigState`
+- **Serial communication**: Command parsing with space-separated tokens via `processSerialCommands()`, `processSetCommand()`, and `processStatusCommand()`
+- **Power management**: Three-stage relay sequencing with specific timing requirements
+- **Switch inputs**: Physical switches for manual control with state change detection
 - **Refrigerator control**: `PIN_CMD_OUT` HIGH = off, LOW = on
-- **IR communication**: NEC protocol with empirically-determined timing compensation
 - **Power management**: Three-stage relay sequencing with specific timing requirements
