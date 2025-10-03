@@ -1,0 +1,6 @@
+{
+  "arduino.path": "/snap/bin/arduino-cli",
+  "arduino.commandPath": "arduino-cli",
+  "arduino.fqbn": "arduino:avr:uno",
+  "arduino.port": "/dev/ttyACM0"
+}
