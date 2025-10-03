@@ -5,17 +5,17 @@
  *
  *  Control Commands (set):
  *    set system on      - Turn on the audio power system
- *    set system PIN_OFF     - Turn PIN_OFF the audio power system
+ *    set system PIN_OFF     - Turn off the audio power system
  *    set override on    - Turn on the refrigerator override
- *    set override PIN_OFF   - Turn PIN_OFF the refrigerator override
+ *    set override PIN_OFF   - Turn off the refrigerator override
  *
  *  Status Commands:
- *    status system      - Returns "on" or "PIN_OFF" (current system state)
- *    status override    - Returns "on" or "PIN_OFF" (current refrigerator override state)
+ *    status system      - Returns "on" or "off" (current system state)
+ *    status override    - Returns "on" or "off" (current refrigerator override state)
  *
  *  Response Format:
  *    OK                 - Command executed successfully
- *    on/PIN_OFF             - Status response
+ *    on/off             - Status response
  *    ERR <message>      - Error with description
  * 
  *  Reported refrigerator status may not reflect actual state due to the refrigerator controller's
@@ -96,8 +96,8 @@ void ensureRefrigState(int newState)
   if (newState == currentRefrigState)
     return;
 
-  /* Check if override switch is active (HIGH = on) */
-  if (digitalRead(PIN_OVERRIDE_SW) == HIGH)
+  /* Check if override switch or software overrideis active (HIGH = on) */
+  if ((digitalRead(PIN_OVERRIDE_SW) == HIGH) || (currentSoftOverrideState == STATE_ON))
     if (newState == STATE_OFF)
       return;
   
@@ -148,40 +148,45 @@ void processSetCommand(String remainder) {
   if (device.equalsIgnoreCase("system")) {
     if (actionValue == 1)  // on
         ensureSystemState(STATE_ON); 
-      sendOkResponse(); // Already on
-    } else { // PIN_OFF
+    else // PIN_OFF
         ensureSystemState(STATE_OFF);
-        sendOkResponse();
-      } else
-        sendOkResponse(); // Already PIN_OFF
-    }
-  } else if (device.equalsIgnoreCase("override")) {
-    if (actionValue == 1) { // on
-      ensureRefrigState(SW_OVERRIDE_on);
-      sendOkResponse();
-    } else { // PIN_OFF
-      ensureRefrigState(REFRIG_PIN_OFF);
-      sendOkResponse();
-    }
-  } else
-    Serial.println(F("ERR Invalid device. Use 'system' or 'override'"));
+    sendOkResponse();
+    return;
+  }
+  
+  if (device.equalsIgnoreCase("override")) {
+    if (actionValue == 1)  // on
+      ensureRefrigState(STATE_ON);
+    else
+      ensureRefrigState(STATE_OFF);
+    sendOkResponse();
+    return;
+  }
+
+  Serial.println(F("ERR Invalid device. Use 'system' or 'override'"));
 }
 
 
 void processStatusCommand(String remainder) {
+  
   // Parse "status device"
   if (remainder.equalsIgnoreCase("system")) {
     if (currentSysState == STATE_ON)
       Serial.println(F("on"));
     else
       Serial.println(F("off"));
-  } else if (remainder.equalsIgnoreCase("override")) {
-    if (currentSoftOverrideState == SW_OVERRIDE_on)
+    return;
+  }
+  
+  if (remainder.equalsIgnoreCase("override")) {
+    if (currentSoftOverrideState == STATE_ON)
       Serial.println(F("on"));
     else
       Serial.println(F("off"));
-  } else
-    Serial.println(F("ERR Invalid device. Use 'system' or 'override'"));
+    return;
+  } 
+    
+  Serial.println(F("ERR Invalid device. Use 'system' or 'override'"));
 }
 
 
