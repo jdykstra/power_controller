@@ -1,0 +1,33 @@
+{
+    "configurations": [
+        {
+            "name": "Mac",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "~/Library/Arduino15/packages/arduino/hardware/avr/1.8.6/cores/arduino",
+                "~/Library/Arduino15/packages/arduino/hardware/avr/1.8.6/variants/standard",
+                "~/Library/Arduino15/packages/arduino/tools/avr-gcc/7.3.0-atmel3.6.1-arduino7/avr/include",
+                "~/Library/Arduino15/packages/arduino/tools/avr-gcc/7.3.0-atmel3.6.1-arduino7/lib/gcc/avr/7.3.0/include"
+            ],
+            "forcedInclude": [
+                "~/Library/Arduino15/packages/arduino/hardware/avr/1.8.6/cores/arduino/Arduino.h"
+            ],
+            "defines": [
+                "ARDUINO=10816",
+                "ARDUINO_AVR_UNO",
+                "ARDUINO_ARCH_AVR",
+                "__AVR_ATmega328P__",
+                "F_CPU=16000000L",
+                "__AVR__"
+            ],
+            "compilerPath": "~/Library/Arduino15/packages/arduino/tools/avr-gcc/7.3.0-atmel3.6.1-arduino7/bin/avr-gcc",
+            "cStandard": "c11",
+            "cppStandard": "c++11",
+            "intelliSenseMode": "gcc-x64",
+            "compilerArgs": [
+                "-mmcu=atmega328p"
+            ]
+        }
+    ],
+    "version": 4
+}
