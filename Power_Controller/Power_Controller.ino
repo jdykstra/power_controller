@@ -103,9 +103,9 @@ void ensureRefrigState(int newState)
   
   /* Set the refrigerator state */
   if (newState == STATE_ON) 
-    digitalWrite(PIN_CMD_OUT, PIN_ON);
-  else 
     digitalWrite(PIN_CMD_OUT, PIN_OFF);
+  else 
+    digitalWrite(PIN_CMD_OUT, PIN_ON);
 
   currentRefrigState = newState;
 }
