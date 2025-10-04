@@ -28,9 +28,9 @@
 /*  Build options. */
 
 /*  Hardware definitions.  */
-#define PIN_CMD_OUT     3       /* DC level command to refrig controller */
+#define PIN_CMD_OUT     3       /* DC level command to refrig controller.   PIN_ON turns it off. */
 #define PIN_PWR_SW      7       /* Power switch input */
-#define PIN_OVERRIDE_SW 8     /* Refrigerator override switch input */
+#define PIN_OVERRIDE_SW 8       /* Refrigerator override switch input */
 #define PIN_PWR_A       9       /* Power output A */
 #define PIN_PWR_B       10      /* Power output B */
 #define PIN_PWR_C       11      /* Power output C */
@@ -49,65 +49,49 @@ enum {
 
 
 int currentSysState = STATE_OFF;          /* Current system power state */
-int currentRefrigState = STATE_OFF;       /* Current refrigerator state */
 int currentSoftOverrideState = STATE_OFF;   /* Current software override state */
 
 
-void ensureSystemState(int newState)
+void setSystemState(int newState)
 {  
-  if (newState == currentSysState)
-    return;
-
-  if (newState == STATE_ON) {
-    /*
-     *   There's some sort of interaction between the controller's
-     *   power supply and relay picking.  Pick each one 
-     *   individually to avoid this.
-     */
-    digitalWrite(PIN_PILOT, PIN_ON);
-    digitalWrite(PIN_PWR_A, PIN_ON);
-    delay(3*1000);
-    digitalWrite(PIN_PWR_B, PIN_ON);
-    delay(1*1000);
-    digitalWrite(PIN_PWR_C, PIN_ON);
-
-    /* Turn off the refrigerator. */
-    ensureRefrigState(STATE_OFF);
-
-  } else {
-
-    digitalWrite(PIN_PILOT, PIN_OFF);
-    digitalWrite(PIN_PWR_C, PIN_OFF);
-    delay(3*1000);
-    digitalWrite(PIN_PWR_B, PIN_OFF);
-    delay(1*1000);
-    digitalWrite(PIN_PWR_A, PIN_OFF);
-
-    /* Turn on the refrigerator. */
-    ensureRefrigState(STATE_ON);
-  }
-
   currentSysState = newState;
+  updateOutputPins();
 }
 
 
-void ensureRefrigState(int newState)
+void setSoftwareOverideState(int newState)
 {
-  if (newState == currentRefrigState)
-    return;
+  currentSoftOverrideState = newState;
+}
 
-  /* Check if override switch or software overrideis active (HIGH = on) */
-  if ((digitalRead(PIN_OVERRIDE_SW) == HIGH) || (currentSoftOverrideState == STATE_ON))
-    if (newState == STATE_OFF)
-      return;
-  
-  /* Set the refrigerator state */
-  if (newState == STATE_ON) 
-    digitalWrite(PIN_CMD_OUT, PIN_OFF);
-  else 
-    digitalWrite(PIN_CMD_OUT, PIN_ON);
 
-  currentRefrigState = newState;
+
+void updateOutputPins(void)
+{  
+  int pinValue = (currentSysState == STATE_ON) ? PIN_ON : PIN_OFF;
+
+  /*
+    *   There's some sort of interaction between the controller's
+    *   power supply and relay picking.  Pick each one 
+    *   individually to avoid this.
+    */
+  digitalWrite(PIN_PILOT, pinValue);
+  digitalWrite(PIN_PWR_A, pinValue);
+  delay(3*1000);
+  digitalWrite(PIN_PWR_B, pinValue);
+  delay(1*1000);
+  digitalWrite(PIN_PWR_C, pinValue);
+
+  /*  
+   * Update the refrigerator power setting depending upon system state, and the
+   *  software and hardware overrides.
+   */
+  int overrideActive = (digitalRead(PIN_OVERRIDE_SW) == HIGH) || (currentSoftOverrideState == STATE_ON))
+  if (overrideActive)
+    pinValue = PIN_OFF
+  else
+    pinValue = (currentSysState == STATE_ON) ? PIN_ON : PIN_OFF;
+  digitalWrite(PIN_CMD_OUT, pinValue);
 }
 
 
@@ -147,9 +131,9 @@ void processSetCommand(String remainder) {
   
   if (device.equalsIgnoreCase("system")) {
     if (actionValue == 1)  // on
-        ensureSystemState(STATE_ON); 
+        setSystemState(STATE_ON); 
     else // PIN_OFF
-        ensureSystemState(STATE_OFF);
+        setSystemState(STATE_OFF);
     sendOkResponse();
     return;
   }
@@ -238,6 +222,7 @@ void setup()
 
 
 void loop() {
+  int hardwareOverrideState = LOW;
 
   /*  
    *  Process switch commands. The power switch is momentary;
@@ -246,19 +231,19 @@ void loop() {
    */
   if (digitalRead(PIN_PWR_SW) == LOW){
     if (currentSysState == STATE_OFF) 
-      ensureSystemState(STATE_ON);
+      setSystemState(STATE_ON);
     else
-      ensureSystemState(STATE_OFF);
+      setSystemState(STATE_OFF);
   }
 
   /* 
-   *  Process refrigerator override hardware switch, which is double-throw,
-   *  along with software override. 
+   *  Process refrigerator override hardware switch, which is double-throw. 
    */
-  int override = digitalRead(PIN_OVERRIDE_SW);
-  if ((override == HIGH) || (currentSoftOverrideState == STATE_ON)) {
-    ensureRefrigState(STATE_ON);
-  } 
+  if (digitalRead(PIN_OVERRIDE_SW) != hardwareOverrideState){
+    hardwareOverrideState = digitalRead(PIN_OVERRIDE_SW) == PIN_ON;
+    updateOutputPins();
+  }
 
+  /*  Process commands from the music server. */
   processSerialCommands();
 }
