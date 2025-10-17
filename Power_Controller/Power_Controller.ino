@@ -143,20 +143,20 @@ void processSetCommand(String remainder) {
   }
   
   if (device.equalsIgnoreCase("system")) {
+    sendOkResponse();
     if (actionValue == 1)  // on
         setSystemState(STATE_ON); 
     else // PIN_OFF
         setSystemState(STATE_OFF);
-    sendOkResponse();
     return;
   }
   
   if (device.equalsIgnoreCase("override")) {
+    sendOkResponse();
     if (actionValue == 1)  // on
       setSoftwareOverideState(STATE_ON);
     else
       setSoftwareOverideState(STATE_OFF);
-    sendOkResponse();
     return;
   }
 
